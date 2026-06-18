@@ -1,0 +1,20 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+*.venv
+
+*.txt
+
+*.json
+*.xlsx
+
+!regions_level2_id.json
+
+scrape_UB.py
+scrape_UMKM.py

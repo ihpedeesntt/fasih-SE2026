@@ -1,0 +1,138 @@
+{
+    "success": true,
+    "message": "Successfully fetched all regions.",
+    "data": [
+        {
+            "id": "9d001b66-8cab-4d41-b8d8-33a65cba0871",
+            "fullCode": "5301",
+            "code": "01",
+            "name": "SUMBA BARAT"
+        },
+        {
+            "id": "58cb70b5-501c-4b5d-8a9b-eac7f27dba86",
+            "fullCode": "5302",
+            "code": "02",
+            "name": "SUMBA TIMUR"
+        },
+        {
+            "id": "8b7c55c6-b6d5-4afa-8bed-67e5d4777d76",
+            "fullCode": "5303",
+            "code": "03",
+            "name": "KUPANG"
+        },
+        {
+            "id": "3051489e-b4da-4d5d-aba2-5e52daede4cb",
+            "fullCode": "5304",
+            "code": "04",
+            "name": "TIMOR TENGAH SELATAN"
+        },
+        {
+            "id": "e2148cf8-fcb1-4d5a-913e-6f55474c975b",
+            "fullCode": "5305",
+            "code": "05",
+            "name": "TIMOR TENGAH UTARA"
+        },
+        {
+            "id": "38a5de56-47e2-4e92-83b6-77166e93b210",
+            "fullCode": "5306",
+            "code": "06",
+            "name": "BELU"
+        },
+        {
+            "id": "60d4b090-a104-42c5-9f4e-e6e7caca2dc0",
+            "fullCode": "5307",
+            "code": "07",
+            "name": "ALOR"
+        },
+        {
+            "id": "8e25f379-9d4e-4264-8be4-ade8d5e4cf21",
+            "fullCode": "5308",
+            "code": "08",
+            "name": "LEMBATA"
+        },
+        {
+            "id": "198ef332-0ec6-4a8c-89ab-c11a5298f31a",
+            "fullCode": "5309",
+            "code": "09",
+            "name": "FLORES TIMUR"
+        },
+        {
+            "id": "cf0f52c2-dedb-437d-bbdb-b4f3eed57b99",
+            "fullCode": "5310",
+            "code": "10",
+            "name": "SIKKA"
+        },
+        {
+            "id": "08fd30aa-99c2-4229-8593-ea4bbf1edd50",
+            "fullCode": "5311",
+            "code": "11",
+            "name": "ENDE"
+        },
+        {
+            "id": "f3dd62a8-f94d-47a9-9281-2c3c3f13d3bc",
+            "fullCode": "5312",
+            "code": "12",
+            "name": "NGADA"
+        },
+        {
+            "id": "5512e2ec-9c79-43a3-ada9-b92a2a3ad573",
+            "fullCode": "5313",
+            "code": "13",
+            "name": "MANGGARAI"
+        },
+        {
+            "id": "c91df719-bb46-4784-af77-937c48b46ecd",
+            "fullCode": "5314",
+            "code": "14",
+            "name": "ROTE NDAO"
+        },
+        {
+            "id": "5c614d90-cdcc-4abb-b03a-d53c9cf0b7c1",
+            "fullCode": "5315",
+            "code": "15",
+            "name": "MANGGARAI BARAT"
+        },
+        {
+            "id": "7eb7bbc2-76bf-4b35-be04-c20ea8a5d4c3",
+            "fullCode": "5316",
+            "code": "16",
+            "name": "SUMBA TENGAH"
+        },
+        {
+            "id": "d75526b2-284c-4815-8bad-6789d4ce48e4",
+            "fullCode": "5317",
+            "code": "17",
+            "name": "SUMBA BARAT DAYA"
+        },
+        {
+            "id": "d2a6426a-1225-439c-bfb3-252c2d8fccf3",
+            "fullCode": "5318",
+            "code": "18",
+            "name": "NAGEKEO"
+        },
+        {
+            "id": "bb382085-5db4-4d58-99a4-473d63d8b728",
+            "fullCode": "5319",
+            "code": "19",
+            "name": "MANGGARAI TIMUR"
+        },
+        {
+            "id": "62aebabd-e8a8-45b8-ae2d-e52e8f095994",
+            "fullCode": "5320",
+            "code": "20",
+            "name": "SABU RAIJUA"
+        },
+        {
+            "id": "a7e2b939-e634-4ad8-972f-3ace3cba581c",
+            "fullCode": "5321",
+            "code": "21",
+            "name": "MALAKA"
+        },
+        {
+            "id": "2c28f605-5d75-4b91-b4fd-52092a7f8e45",
+            "fullCode": "5371",
+            "code": "71",
+            "name": "KUPANG"
+        }
+    ]
+}
