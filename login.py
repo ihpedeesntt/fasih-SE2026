@@ -17,8 +17,9 @@ USER_AGENTS = [
 ]
 
 LOGIN_URL = "https://fasih-sm.bps.go.id/app/surveys"
-MANUAL_LOGIN_WAIT_MS = 60_000
-MANUAL_OTP_WAIT_MS = 60_000
+NAVIGATION_TIMEOUT_MS = 1200_000
+MANUAL_LOGIN_WAIT_MS = 180_000
+MANUAL_OTP_WAIT_MS = 180_000
 
 _PW = None
 
@@ -130,20 +131,20 @@ def login_with_sso():
     page = browser.new_page(user_agent=random.choice(USER_AGENTS))
 
     try:
-        page.goto(LOGIN_URL, timeout=60000)
-        page.wait_for_load_state("networkidle", timeout=60000)
+        page.goto(LOGIN_URL, timeout=NAVIGATION_TIMEOUT_MS)
+        page.wait_for_load_state("networkidle", timeout=NAVIGATION_TIMEOUT_MS)
 
         if not _is_logged_in(page):
             if not _click_sso_login(page):
                 raise RuntimeError("Tombol login SSO tidak ditemukan.")
-            page.wait_for_load_state("networkidle", timeout=60000)
+            page.wait_for_load_state("networkidle", timeout=NAVIGATION_TIMEOUT_MS)
 
         if not _is_logged_in(page):
             print("Silakan isi username dan password di browser. Menunggu 60 detik...")
             page.wait_for_timeout(MANUAL_LOGIN_WAIT_MS)
             _click_visible_submit(page)
             try:
-                page.wait_for_load_state("networkidle", timeout=60000)
+                page.wait_for_load_state("networkidle", timeout=NAVIGATION_TIMEOUT_MS)
             except Exception:
                 pass
 
@@ -152,7 +153,7 @@ def login_with_sso():
             page.wait_for_timeout(MANUAL_OTP_WAIT_MS)
             _click_visible_submit(page)
             try:
-                page.wait_for_load_state("networkidle", timeout=60000)
+                page.wait_for_load_state("networkidle", timeout=NAVIGATION_TIMEOUT_MS)
             except Exception:
                 pass
 

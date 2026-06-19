@@ -26,6 +26,7 @@ REPORT_API_URL = (
 )
 PAYLOAD_FILE = "payload_report_assignment.json"
 FAILED_SCOPES_FILE = "failed_report_scopes.json"
+REPORT_NAVIGATION_TIMEOUT_MS = 600_000
 MAX_RETRY_ATTEMPTS = 5
 RETRY_BACKOFF_SECONDS = (1, 2, 4, 4)
 
@@ -124,8 +125,8 @@ def main():
     session = requests.Session()
 
     try:
-        page.goto("https://fasih-sm.bps.go.id/app/surveys", timeout=60000)
-        page.wait_for_load_state("networkidle")
+        page.goto("https://fasih-sm.bps.go.id/app/surveys", timeout=REPORT_NAVIGATION_TIMEOUT_MS)
+        page.wait_for_load_state("networkidle", timeout=REPORT_NAVIGATION_TIMEOUT_MS)
         headers = build_authenticated_headers(page)
         payload_template = load_json(PAYLOAD_FILE)
 

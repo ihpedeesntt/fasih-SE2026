@@ -77,7 +77,7 @@ Mode:
 
 Alur mode `all`:
 1. pilih file cache wilayah. Contoh : regions_UMKM_5371.json
-2. pilih level `2/3/4/5`
+2. pilih level `2/3/4/5` (level 2 : Kabkot, Level 3 : Kecamatan, Level 4 : Kelurahan/Desa, Level 5 : SLS)
 3. masukkan `levelN_id` atau `levelN_fullCode`
 4. script akan expand ke level 5 lalu ambil report
 
@@ -107,6 +107,6 @@ Semua script yang akses API FASIH memakai login manual melalui `login.py`.
 
 Alur singkat:
 - browser dibuka
-- isi login manual
+- isi login dan OTP manual, masing-masing diberikan waktu 3 menit
 - jika ada OTP, isi manual
 - setelah login berhasil, script lanjut memakai cookie sesi
