@@ -25,6 +25,9 @@ REPORT_API_URL = (
     "report-progress-assignment"
 )
 PAYLOAD_FILE = "payload_report_assignment.json"
+FAILED_SCOPES_FILE = "failed_report_scopes.json"
+MAX_RETRY_ATTEMPTS = 5
+RETRY_BACKOFF_SECONDS = (1, 2, 4, 4)
 
 
 def flatten_report_response(data, selected_scope, query_scope):
@@ -48,13 +51,60 @@ def flatten_report_response(data, selected_scope, query_scope):
     return rows
 
 
+def prompt_run_mode():
+    mode = input("Mode fetch [all/failed] (default: all): ").strip().lower()
+    return mode or "all"
+
+
+def load_failed_run_context():
+    failed_data = load_json(FAILED_SCOPES_FILE)
+    selected_scope = failed_data.get("selected_scope")
+    query_scopes = failed_data.get("failed_scopes") or []
+
+    if not selected_scope or not query_scopes:
+        raise ValueError(f"Tidak ada failed scope yang bisa dijalankan ulang di {FAILED_SCOPES_FILE}.")
+
+    return selected_scope, query_scopes
+
+
+def fetch_report_with_retry(session, headers, payload, query_scope, max_attempts=MAX_RETRY_ATTEMPTS):
+    for attempt in range(1, max_attempts + 1):
+        try:
+            response = session.post(
+                REPORT_API_URL,
+                json=payload,
+                headers=headers,
+                timeout=60,
+            )
+            return response_json(
+                response,
+                f"Report for level5 {query_scope['fullCode']}",
+            )
+        except (requests.exceptions.Timeout, requests.exceptions.ConnectionError) as e:
+            if attempt >= max_attempts:
+                raise
+
+            backoff = RETRY_BACKOFF_SECONDS[min(attempt - 1, len(RETRY_BACKOFF_SECONDS) - 1)]
+            print(
+                f"\nRetry report {query_scope['fullCode']} "
+                f"(attempt {attempt + 1}/{max_attempts}) after error: {e}"
+            )
+            time.sleep(backoff)
+
+
 def main():
-    regions_file = prompt_regions_file(default=REGIONS_FILE)
-    regions = load_json(regions_file)
-    selected_scope = prompt_region_scope(regions, regions_file=regions_file, max_level=5)
-    query_scopes = expand_scope_to_level5(regions, selected_scope)
-    raw_output_file = scoped_output_name("report_assignment_UMKM", "json", selected_scope)
-    excel_output_file = scoped_output_name("report_assignment_UMKM", "xlsx", selected_scope)
+    run_mode = prompt_run_mode()
+    if run_mode == "failed":
+        selected_scope, query_scopes = load_failed_run_context()
+        raw_output_file = scoped_output_name("report_assignment_UMKM_failed_only", "json", selected_scope)
+        excel_output_file = scoped_output_name("report_assignment_UMKM_failed_only", "xlsx", selected_scope)
+    else:
+        regions_file = prompt_regions_file(default=REGIONS_FILE)
+        regions = load_json(regions_file)
+        selected_scope = prompt_region_scope(regions, regions_file=regions_file, max_level=5)
+        query_scopes = expand_scope_to_level5(regions, selected_scope)
+        raw_output_file = scoped_output_name("report_assignment_UMKM", "json", selected_scope)
+        excel_output_file = scoped_output_name("report_assignment_UMKM", "xlsx", selected_scope)
 
     print(
         f"Mengambil report assignment untuk level{selected_scope['level']} "
@@ -87,15 +137,11 @@ def main():
             try:
                 payload = apply_scope_to_report_payload(payload_template, query_scope, max_level=5)
                 time.sleep(get_random_delay())
-                response = session.post(
-                    REPORT_API_URL,
-                    json=payload,
-                    headers=headers,
-                    timeout=30,
-                )
-                data = response_json(
-                    response,
-                    f"Report for level5 {query_scope['fullCode']}",
+                data = fetch_report_with_retry(
+                    session,
+                    headers,
+                    payload,
+                    query_scope,
                 )
                 raw_results.append(
                     {
@@ -108,18 +154,26 @@ def main():
                 )
                 rows.extend(flatten_report_response(data, selected_scope, query_scope))
             except Exception as e:
-                failed_scopes.append(query_scope["fullCode"])
+                failed_scopes.append(query_scope)
                 print(f"\nGagal mengambil report {query_scope['fullCode']}: {e}")
 
         save_json(raw_output_file, raw_results)
         pd.DataFrame(rows).to_excel(excel_output_file, index=False)
+        save_json(
+            FAILED_SCOPES_FILE,
+            {
+                "selected_scope": selected_scope,
+                "failed_scopes": failed_scopes,
+            },
+        )
 
         print(f"Raw report saved to {raw_output_file}")
         print(f"Flattened report saved to {excel_output_file}")
         print(f"Total rows: {len(rows)}")
         if failed_scopes:
             print(f"Failed level-5 scopes: {len(failed_scopes)}")
-            print(", ".join(failed_scopes))
+            print(", ".join(scope["fullCode"] for scope in failed_scopes))
+            print(f"Failed scopes saved to {FAILED_SCOPES_FILE}")
     except Exception as e:
         print(f"Error: {e}")
     finally:
