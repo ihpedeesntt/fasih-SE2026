@@ -15,6 +15,7 @@ wheels/
 *.xlsx
 
 !regions_level2_id.json
+!payload_report_assignment.json
 
 scrape_UB.py
 scrape_UMKM.py

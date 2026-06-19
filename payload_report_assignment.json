@@ -1,0 +1,23 @@
+{
+    "surveyPeriodId": "fd68e454-ba45-4b85-8205-f3bf777ded24",
+    "assignmentStatusAlias": null,
+    "assignmentErrorStatusType": -1,
+    "data1": null,
+    "data2": null,
+    "data3": null,
+    "data4": null,
+    "data5": null,
+    "data6": null,
+    "data7": null,
+    "data8": null,
+    "data9": null,
+    "data10": null,
+    "regionId": null,
+    "region1Id": "af72fb31-23ff-4346-8a0c-332e6f9c5d0d",
+    "region2Id": "2c28f605-5d75-4b91-b4fd-52092a7f8e45",
+    "region3Id": "cbf03173-1a5f-47db-97e5-76071932e8bf",
+    "region4Id": "3677cafa-e2d8-41b1-ba72-3d687bbfd405",
+    "region5Id": "299e5ad8-5511-4ed6-9d35-e85705084f08",
+    "currentUserId": null,
+    "userIdResponsibility": null
+}
