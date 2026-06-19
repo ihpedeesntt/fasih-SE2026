@@ -10,6 +10,10 @@ Kumpulan script untuk:
 Requirement:
 - Python 3.11+
 - `uv`
+- Pastikan di PC lokal sudah terinstall uv. Tata cara instalasi UV dapat diakses di tautan berikut:
+https://docs.astral.sh/uv/getting-started/installation/#installation-methods
+
+
 
 Install dependency:
 
