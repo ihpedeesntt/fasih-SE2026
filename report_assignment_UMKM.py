@@ -106,6 +106,38 @@ def fetch_report_with_retry(session, headers, payload, query_scope, max_attempts
             time.sleep(backoff)
 
 
+def run_report_scopes(session, headers, payload_template, selected_scope, query_scopes, description):
+    raw_results = []
+    rows = []
+    failed_scopes = []
+
+    for query_scope in tqdm(query_scopes, desc=description, unit="scope"):
+        try:
+            payload = apply_scope_to_report_payload(payload_template, query_scope, max_level=5)
+            time.sleep(get_random_delay())
+            data = fetch_report_with_retry(
+                session,
+                headers,
+                payload,
+                query_scope,
+            )
+            raw_results.append(
+                {
+                    "selected_level": selected_scope["level"],
+                    "selected_fullCode": selected_scope["fullCode"],
+                    "query_level": query_scope["level"],
+                    "query_fullCode": query_scope["fullCode"],
+                    "response": data,
+                }
+            )
+            rows.extend(flatten_report_response(data, selected_scope, query_scope))
+        except Exception as e:
+            failed_scopes.append(query_scope)
+            print(f"\nGagal mengambil report {query_scope['fullCode']}: {e}")
+
+    return raw_results, rows, failed_scopes
+
+
 def main():
     run_mode = prompt_run_mode()
     if run_mode == "failed":
@@ -143,33 +175,30 @@ def main():
         headers = build_authenticated_headers(page)
         payload_template = load_json(PAYLOAD_FILE)
 
-        raw_results = []
-        rows = []
-        failed_scopes = []
+        raw_results, rows, failed_scopes = run_report_scopes(
+            session,
+            headers,
+            payload_template,
+            selected_scope,
+            query_scopes,
+            "Fetching report level-5 scopes",
+        )
 
-        for query_scope in tqdm(query_scopes, desc="Fetching report level-5 scopes", unit="scope"):
-            try:
-                payload = apply_scope_to_report_payload(payload_template, query_scope, max_level=5)
-                time.sleep(get_random_delay())
-                data = fetch_report_with_retry(
-                    session,
-                    headers,
-                    payload,
-                    query_scope,
-                )
-                raw_results.append(
-                    {
-                        "selected_level": selected_scope["level"],
-                        "selected_fullCode": selected_scope["fullCode"],
-                        "query_level": query_scope["level"],
-                        "query_fullCode": query_scope["fullCode"],
-                        "response": data,
-                    }
-                )
-                rows.extend(flatten_report_response(data, selected_scope, query_scope))
-            except Exception as e:
-                failed_scopes.append(query_scope)
-                print(f"\nGagal mengambil report {query_scope['fullCode']}: {e}")
+        if failed_scopes:
+            print(
+                f"\nMenjalankan ulang {len(failed_scopes)} failed scope "
+                "dalam sesi yang sama..."
+            )
+            retry_raw_results, retry_rows, failed_scopes = run_report_scopes(
+                session,
+                headers,
+                payload_template,
+                selected_scope,
+                failed_scopes,
+                "Retrying failed report scopes",
+            )
+            raw_results.extend(retry_raw_results)
+            rows.extend(retry_rows)
 
         save_json(raw_output_file, raw_results)
         pd.DataFrame(rows).to_excel(excel_output_file, index=False)
