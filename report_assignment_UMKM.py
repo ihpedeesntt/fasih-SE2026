@@ -53,6 +53,19 @@ def flatten_report_response(data, selected_scope, query_scope):
 
 
 def prompt_run_mode():
+    try:
+        failed_data = load_json(FAILED_SCOPES_FILE)
+        failed_scopes = failed_data.get("failed_scopes") or []
+        if failed_scopes:
+            answer = input(
+                f"Ditemukan {len(failed_scopes)} failed scope. "
+                "Jalankan hanya failed_report_scopes? [Y/n]: "
+            ).strip().lower()
+            if answer in {"", "y", "yes"}:
+                return "failed"
+    except Exception:
+        pass
+
     mode = input("Mode fetch [all/failed] (default: all): ").strip().lower()
     return mode or "all"
 
