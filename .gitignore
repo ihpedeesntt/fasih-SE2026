@@ -18,5 +18,4 @@ wheels/
 !payload_report_assignment.json
 !payload_report_assignment_UB.json
 
-scrape_UB.py
 scrape_UMKM.py
