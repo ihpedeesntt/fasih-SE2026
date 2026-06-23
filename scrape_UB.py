@@ -64,6 +64,9 @@ def extract_record(record):
         "data7": record.get("data7"),
         "email": record.get("email"),
         "assignmentStatusAlias": record.get("assignmentStatusAlias"),
+        "currentUserFullname": record.get("currentUserFullname"),
+        "currentUserUsername": record.get("currentUserUsername"),
+        "currentUserSurveyRoleName": record.get("currentUserSurveyRoleName"),
         "level5_fullCode": nested_get(
             record,
             ["region", "level1", "level2", "level3", "level4", "level5", "fullCode"],
@@ -181,6 +184,9 @@ def main():
                 "data7",
                 "email",
                 "assignmentStatusAlias",
+                "currentUserFullname",
+                "currentUserUsername",
+                "currentUserSurveyRoleName",
                 "level5_fullCode",
             ],
         )
