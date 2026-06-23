@@ -37,7 +37,7 @@ uv run playwright install
   - hasil disimpan ke file seperti `regions_UB_5307.json`
 - `report_assignment_UMKM.py`
   - ambil report progress assignment
-  - bisa full run atau hanya rerun scope yang gagal
+  - bisa single run, rerun failed scope, atau batch beberapa level-2
 - `report_assignment_UB.py`
   - ambil report progress assignment untuk UB
   - flow sama dengan UMKM, tetapi memakai payload dan file failed khusus UB
@@ -88,21 +88,35 @@ uv run python report_assignment_UMKM.py
 ```
 
 Mode:
-- `all`
+- `single`
   - run normal dari scope yang dipilih
 - `failed`
   - hanya rerun scope yang tersimpan di `failed_report_scopes.json`
+- `batch-all`
+  - jalankan semua file `regions_UMKM_*.json`
+- `batch-selected`
+  - pilih beberapa file `regions_UMKM_*.json`
 
-Alur mode `all`:
+Jika ada isi di `failed_level2_batches_UMKM.json`, script akan menawarkan rerun hanya batch level-2 yang gagal.
+
+Alur mode `single`:
 1. pilih file cache wilayah. Contoh : regions_UMKM_5371.json
 2. pilih level `2/3/4/5` (level 2 : Kabkot, Level 3 : Kecamatan, Level 4 : Kelurahan/Desa, Level 5 : SLS)
 3. masukkan `levelN_id` atau `levelN_fullCode`
 4. script akan expand ke level 5 lalu ambil report
 
+Alur mode batch:
+1. login sekali
+2. script loop serial per file cache level-2
+3. setiap level-2 menghasilkan file JSON/XLSX sendiri
+4. jika ada level-2 yang masih gagal, nama file cache-nya disimpan ke `failed_level2_batches_UMKM.json`
+
 Output:
 - raw JSON
 - file Excel hasil flatten
-- `failed_report_scopes.json` jika ada scope yang gagal
+- `failed_report_scopes.json` untuk single/failed mode
+- `failed_report_scopes_level2_<fullCode>.json` untuk batch mode
+- `failed_level2_batches_UMKM.json` jika ada level-2 yang gagal saat batch
 
 Contoh output:
 
@@ -110,6 +124,8 @@ Contoh output:
 report_assignment_UMKM_level2_5371.json
 report_assignment_UMKM_level2_5371.xlsx
 failed_report_scopes.json
+failed_report_scopes_level2_5371.json
+failed_level2_batches_UMKM.json
 ```
 
 ### Ambil report assignment UB
@@ -141,6 +157,7 @@ failed_report_scopes_UB.json
 - timeout request `60` detik
 - retry sampai `5` kali untuk timeout / connection error
 - simpan scope gagal ke `failed_report_scopes.json`
+- untuk batch, simpan level-2 gagal ke `failed_level2_batches_UMKM.json`
 
 `report_assignment_UB.py` saat ini:
 - timeout request `60` detik

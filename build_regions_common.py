@@ -16,20 +16,46 @@ from login import login_with_sso
 
 REGION_API_URL = "https://fasih-sm.bps.go.id/app/api/region/api/v1/region"
 REGION_NAVIGATION_TIMEOUT_MS = 600_000
+REGION_RETRY_BACKOFF_SECONDS = (1, 2, 4, 4)
 
 
-def fetch_regions(session, headers, group_id, level, parent_full_code, request_timeout=30):
+def fetch_regions(
+    session,
+    headers,
+    group_id,
+    level,
+    parent_full_code,
+    request_timeout=30,
+    max_attempts=5,
+):
     parent_param = f"level{level - 1}FullCode"
     params = {"groupId": group_id, parent_param: parent_full_code}
     url = f"{REGION_API_URL}/level{level}?{urlencode(params)}"
 
-    time.sleep(get_random_delay())
-    response = session.get(url, headers=headers, timeout=request_timeout)
-    data = response_json(response, f"Region level {level}")
+    for attempt in range(1, max_attempts + 1):
+        try:
+            time.sleep(get_random_delay())
+            response = session.get(url, headers=headers, timeout=request_timeout)
+            data = response_json(response, f"Region level {level}")
 
-    if not data.get("success"):
-        raise RuntimeError(f"Region level {level} request failed: {data.get('message')}")
-    return data.get("data") or []
+            if not data.get("success"):
+                raise RuntimeError(f"Region level {level} request failed: {data.get('message')}")
+            return data.get("data") or []
+        except (requests.exceptions.Timeout, requests.exceptions.ConnectionError) as e:
+            if attempt >= max_attempts:
+                raise RuntimeError(
+                    f"Gagal mengambil region level {level} untuk {parent_full_code} "
+                    f"setelah {max_attempts} percobaan: {e}"
+                ) from e
+
+            backoff = REGION_RETRY_BACKOFF_SECONDS[
+                min(attempt - 1, len(REGION_RETRY_BACKOFF_SECONDS) - 1)
+            ]
+            print(
+                f"Retry region level {level} untuk {parent_full_code} "
+                f"(attempt {attempt + 1}/{max_attempts}) setelah error: {e}"
+            )
+            time.sleep(backoff)
 
 
 def discover_level6_regions(

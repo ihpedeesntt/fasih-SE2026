@@ -39,12 +39,16 @@ def save_json(path, data):
         json.dump(data, f, ensure_ascii=False, indent=2)
 
 
+def list_region_cache_files(pattern="regions_UMKM*.json"):
+    return [path.name for path in sorted(Path(".").glob(pattern))]
+
+
 def prompt_regions_file(default=REGIONS_FILE, pattern="regions_UMKM*.json"):
-    matches = sorted(Path(".").glob(pattern))
+    matches = list_region_cache_files(pattern)
     if matches:
         print("File cache wilayah yang tersedia:")
         for match in matches[:10]:
-            print(f"- {match.name}")
+            print(f"- {match}")
     else:
         print("Belum ada file cache wilayah yang cocok.")
 
