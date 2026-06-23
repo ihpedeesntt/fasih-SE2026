@@ -32,9 +32,15 @@ uv run playwright install
 - `build_regions_UMKM.py`
   - ambil struktur wilayah level 3 sampai level 6
   - hasil disimpan ke file seperti `regions_UMKM_5371.json`
+- `build_regions_UB.py`
+  - ambil struktur wilayah level 3 sampai level 6 untuk UB
+  - hasil disimpan ke file seperti `regions_UB_5307.json`
 - `report_assignment_UMKM.py`
   - ambil report progress assignment
   - bisa full run atau hanya rerun scope yang gagal
+- `report_assignment_UB.py`
+  - ambil report progress assignment untuk UB
+  - flow sama dengan UMKM, tetapi memakai payload dan file failed khusus UB
 
 ## ALUR
 
@@ -44,6 +50,12 @@ Jalankan:
 
 ```powershell
 uv run python build_regions_UMKM.py
+```
+
+Untuk UB:
+
+```powershell
+uv run python build_regions_UB.py
 ```
 
 Input yang diminta:
@@ -56,13 +68,15 @@ Contoh output:
 ```text
 regions_UMKM_5371.json
 regions_UMKM_5305.json
+regions_UB_5307.json
 ```
 
 Catatan:
 - untuk kabupaten/kota baru, file cache wilayah harus dibuat dulu
 - script ini login manual lewat browser
+- `build_regions_UMKM.py` dan `build_regions_UB.py` memakai ID wilayah yang berbeda, jadi cache-nya tidak bisa saling dipakai
 
-hanya dilakukan sekali saja untuk mengambil data wilayah kabupaten.
+hanya dilakukan sekali saja untuk mengambil data wilayah kabupaten per dataset.
 
 
 ### Ambil report assignment
@@ -98,12 +112,41 @@ report_assignment_UMKM_level2_5371.xlsx
 failed_report_scopes.json
 ```
 
+### Ambil report assignment UB
+
+Jalankan:
+
+```powershell
+uv run python report_assignment_UB.py
+```
+
+Alur:
+1. pilih file cache wilayah UB, mis. `regions_UB_5307.json`
+2. pilih level `2/3/4/5`
+3. masukkan `levelN_id` atau `levelN_fullCode`
+4. script expand ke level 5
+5. level 5 yang response-nya kosong akan dilewati dan tidak dianggap gagal
+
+Output contoh:
+
+```text
+report_assignment_UB_level2_5305.json
+report_assignment_UB_level2_5305.xlsx
+failed_report_scopes_UB.json
+```
+
 ## Retry dan Timeout
 
 `report_assignment_UMKM.py` saat ini:
 - timeout request `60` detik
 - retry sampai `5` kali untuk timeout / connection error
 - simpan scope gagal ke `failed_report_scopes.json`
+
+`report_assignment_UB.py` saat ini:
+- timeout request `60` detik
+- retry sampai `5` kali untuk timeout / connection error
+- scope kosong tidak dianggap gagal
+- simpan scope gagal ke `failed_report_scopes_UB.json`
 
 ## Login
 

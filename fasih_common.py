@@ -39,8 +39,8 @@ def save_json(path, data):
         json.dump(data, f, ensure_ascii=False, indent=2)
 
 
-def prompt_regions_file(default=REGIONS_FILE):
-    matches = sorted(Path(".").glob("regions_UMKM*.json"))
+def prompt_regions_file(default=REGIONS_FILE, pattern="regions_UMKM*.json"):
+    matches = sorted(Path(".").glob(pattern))
     if matches:
         print("File cache wilayah yang tersedia:")
         for match in matches[:10]:

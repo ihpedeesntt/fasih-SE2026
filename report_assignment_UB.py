@@ -5,9 +5,9 @@ REPORT_API_URL = (
     "https://fasih-sm.bps.go.id/app/api/analytic/api/v2/assignment/"
     "report-progress-assignment"
 )
-PAYLOAD_FILE = "payload_report_assignment.json"
-FAILED_SCOPES_FILE = "failed_report_scopes.json"
-OUTPUT_PREFIX = "report_assignment_UMKM"
+PAYLOAD_FILE = "payload_report_assignment_UB.json"
+FAILED_SCOPES_FILE = "failed_report_scopes_UB.json"
+OUTPUT_PREFIX = "report_assignment_UB"
 
 
 def main():
@@ -16,8 +16,8 @@ def main():
         payload_file=PAYLOAD_FILE,
         failed_scopes_file=FAILED_SCOPES_FILE,
         output_prefix=OUTPUT_PREFIX,
-        regions_file_default="regions_UMKM.json",
-        regions_file_pattern="regions_UMKM*.json",
+        regions_file_default="regions_UB.json",
+        regions_file_pattern="regions_UB*.json",
         max_scope_level=5,
         expand_target_level=5,
         empty_is_failure=False,
