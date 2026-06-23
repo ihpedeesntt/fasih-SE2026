@@ -82,6 +82,17 @@ def build_authenticated_headers(page):
     return headers
 
 
+def apply_browser_cookies_to_session(session, page):
+    session.cookies.clear()
+    for cookie in page.context.cookies():
+        session.cookies.set(
+            cookie["name"],
+            cookie["value"],
+            domain=cookie.get("domain"),
+            path=cookie.get("path", "/"),
+        )
+
+
 def response_json(response, description):
     response.raise_for_status()
     try:
