@@ -1,3 +1,4 @@
+import json
 import time
 from urllib.parse import urlencode
 
@@ -5,6 +6,7 @@ import requests
 from tqdm import tqdm
 
 from fasih_common import (
+    SessionExpiredError,
     apply_browser_cookies_to_session,
     build_authenticated_headers,
     get_random_delay,
@@ -12,12 +14,51 @@ from fasih_common import (
     response_json,
     save_json,
 )
-from login import login_with_sso
+from login import ensure_verified_login, login_with_sso
 
 
 REGION_API_URL = "https://fasih-sm.bps.go.id/app/api/region/api/v1/region"
 REGION_NAVIGATION_TIMEOUT_MS = 600_000
 REGION_RETRY_BACKOFF_SECONDS = (1, 2, 4, 4)
+
+
+def region_url(group_id, level, parent_full_code):
+    parent_param = f"level{level - 1}FullCode"
+    params = {"groupId": group_id, parent_param: parent_full_code}
+    return f"{REGION_API_URL}/level{level}?{urlencode(params)}"
+
+
+def fetch_regions_via_browser(page, url, description):
+    result = page.evaluate(
+        """async (url) => {
+            const response = await fetch(url, {
+                credentials: "include",
+                headers: {
+                    "Accept": "application/json, text/plain, */*",
+                    "X-Requested-With": "XMLHttpRequest"
+                }
+            });
+            return {
+                status: response.status,
+                contentType: response.headers.get("content-type") || "",
+                text: await response.text()
+            };
+        }""",
+        url,
+    )
+    preview = result["text"][:500].replace("\n", " ").replace("\r", " ")
+    if result["status"] in {401, 403, 419} or "<html" in preview.lower():
+        raise SessionExpiredError(
+            f"{description} session expired or verification is blocking requests; "
+            f"status={result['status']}; content-type={result['contentType']}; preview={preview}"
+        )
+    try:
+        return json.loads(result["text"])
+    except ValueError as e:
+        raise RuntimeError(
+            f"{description} returned invalid JSON: {e}; "
+            f"status={result['status']}; content-type={result['contentType']}; preview={preview}"
+        ) from e
 
 
 def fetch_regions(
@@ -26,19 +67,33 @@ def fetch_regions(
     group_id,
     level,
     parent_full_code,
+    page=None,
     request_timeout=30,
     max_attempts=5,
 ):
-    parent_param = f"level{level - 1}FullCode"
-    params = {"groupId": group_id, parent_param: parent_full_code}
-    url = f"{REGION_API_URL}/level{level}?{urlencode(params)}"
+    url = region_url(group_id, level, parent_full_code)
 
     for attempt in range(1, max_attempts + 1):
         try:
             time.sleep(get_random_delay())
-            response = session.get(url, headers=headers, timeout=request_timeout)
-            data = response_json(response, f"Region level {level}")
+            if page is not None:
+                data = fetch_regions_via_browser(page, url, f"Region level {level}")
+            else:
+                response = session.get(url, headers=headers, timeout=request_timeout)
+                data = response_json(response, f"Region level {level}")
 
+            if not data.get("success"):
+                raise RuntimeError(f"Region level {level} request failed: {data.get('message')}")
+            return data.get("data") or []
+        except SessionExpiredError:
+            if page is None:
+                raise
+            if not ensure_verified_login(page, url):
+                raise
+            headers.clear()
+            headers.update(build_authenticated_headers(page))
+            apply_browser_cookies_to_session(session, page)
+            data = fetch_regions_via_browser(page, url, f"Region level {level}")
             if not data.get("success"):
                 raise RuntimeError(f"Region level {level} request failed: {data.get('message')}")
             return data.get("data") or []
@@ -122,6 +177,7 @@ def process_level6_children(
     level5,
     level6_paths,
     failed_tasks,
+    page,
     request_timeout,
     is_retry_pass,
 ):
@@ -132,8 +188,11 @@ def process_level6_children(
             group_id,
             6,
             level5["fullCode"],
+            page=page,
             request_timeout=request_timeout,
         )
+    except SessionExpiredError:
+        raise
     except Exception as e:
         queue_failed_task(
             failed_tasks,
@@ -174,6 +233,7 @@ def process_level5_children(
     level4,
     level6_paths,
     failed_tasks,
+    page,
     request_timeout,
     is_retry_pass,
 ):
@@ -184,8 +244,11 @@ def process_level5_children(
             group_id,
             5,
             level4["fullCode"],
+            page=page,
             request_timeout=request_timeout,
         )
+    except SessionExpiredError:
+        raise
     except Exception as e:
         queue_failed_task(
             failed_tasks,
@@ -212,6 +275,7 @@ def process_level5_children(
             level5=level5,
             level6_paths=level6_paths,
             failed_tasks=failed_tasks,
+            page=page,
             request_timeout=request_timeout,
             is_retry_pass=is_retry_pass,
         )
@@ -229,6 +293,7 @@ def process_level4_children(
     level3,
     level6_paths,
     failed_tasks,
+    page,
     request_timeout,
     is_retry_pass,
 ):
@@ -239,8 +304,11 @@ def process_level4_children(
             group_id,
             4,
             level3["fullCode"],
+            page=page,
             request_timeout=request_timeout,
         )
+    except SessionExpiredError:
+        raise
     except Exception as e:
         queue_failed_task(
             failed_tasks,
@@ -265,6 +333,7 @@ def process_level4_children(
             level4=level4,
             level6_paths=level6_paths,
             failed_tasks=failed_tasks,
+            page=page,
             request_timeout=request_timeout,
             is_retry_pass=is_retry_pass,
         )
@@ -281,6 +350,7 @@ def process_level3_children(
     level2_id,
     level6_paths,
     failed_tasks,
+    page,
     request_timeout,
     is_retry_pass,
 ):
@@ -291,8 +361,11 @@ def process_level3_children(
             group_id,
             3,
             level2_code,
+            page=page,
             request_timeout=request_timeout,
         )
+    except SessionExpiredError:
+        raise
     except Exception as e:
         queue_failed_task(
             failed_tasks,
@@ -319,6 +392,7 @@ def process_level3_children(
             level3=level3,
             level6_paths=level6_paths,
             failed_tasks=failed_tasks,
+            page=page,
             request_timeout=request_timeout,
             is_retry_pass=is_retry_pass,
         )
@@ -336,6 +410,7 @@ def retry_failed_task(
     level2_id,
     level6_paths,
     remaining_failed_tasks,
+    page,
     request_timeout,
 ):
     level = task["level"]
@@ -351,6 +426,7 @@ def retry_failed_task(
             level2_id=level2_id,
             level6_paths=level6_paths,
             failed_tasks=remaining_failed_tasks,
+            page=page,
             request_timeout=request_timeout,
             is_retry_pass=True,
         )
@@ -366,6 +442,7 @@ def retry_failed_task(
             level3=task["level3"],
             level6_paths=level6_paths,
             failed_tasks=remaining_failed_tasks,
+            page=page,
             request_timeout=request_timeout,
             is_retry_pass=True,
         )
@@ -382,6 +459,7 @@ def retry_failed_task(
             level4=task["level4"],
             level6_paths=level6_paths,
             failed_tasks=remaining_failed_tasks,
+            page=page,
             request_timeout=request_timeout,
             is_retry_pass=True,
         )
@@ -399,6 +477,7 @@ def retry_failed_task(
             level5=task["level5"],
             level6_paths=level6_paths,
             failed_tasks=remaining_failed_tasks,
+            page=page,
             request_timeout=request_timeout,
             is_retry_pass=True,
         )
@@ -413,6 +492,7 @@ def discover_level6_regions(
     level1_code,
     level2_code,
     level2_id,
+    page,
     request_timeout=30,
 ):
     level6_paths = []
@@ -428,6 +508,7 @@ def discover_level6_regions(
         level2_id=level2_id,
         level6_paths=level6_paths,
         failed_tasks=failed_tasks,
+        page=page,
         request_timeout=request_timeout,
         is_retry_pass=False,
     )
@@ -450,6 +531,7 @@ def discover_level6_regions(
                 level2_id=level2_id,
                 level6_paths=level6_paths,
                 remaining_failed_tasks=remaining_failed_tasks,
+                page=page,
                 request_timeout=request_timeout,
             )
 
@@ -490,7 +572,7 @@ def run_build_regions_job(
     output_file = prompt_regions_file(default=default_output, pattern=regions_file_pattern)
 
     print(f"Membuka browser untuk login manual {dataset_name}...\n")
-    page, browser = login_with_sso()
+    page, browser = login_with_sso(verify_url=region_url(group_id, 3, level2_code))
     if not page:
         print("Login gagal. Tidak dapat mengambil wilayah.")
         return
@@ -512,10 +594,14 @@ def run_build_regions_job(
             level1_code=level1_code,
             level2_code=level2_code,
             level2_id=level2_id,
+            page=page,
             request_timeout=request_timeout,
         )
         save_json(output_file, regions)
         print(f"{len(regions)} wilayah level 6 disimpan ke {output_file}")
+    except SessionExpiredError as e:
+        print(f"Session expired: {e}")
+        print("Login ulang lalu jalankan script lagi. Partial result tidak disimpan untuk run ini.")
     except Exception as e:
         print(f"Error: {e}")
     finally:

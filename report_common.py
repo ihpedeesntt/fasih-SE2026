@@ -7,6 +7,8 @@ from tqdm import tqdm
 
 from fasih_common import (
     REGIONS_FILE,
+    SessionExpiredError,
+    apply_browser_cookies_to_session,
     apply_scope_to_report_payload,
     build_authenticated_headers,
     expand_scope_to_level,
@@ -15,6 +17,7 @@ from fasih_common import (
     load_json,
     prompt_regions_file,
     prompt_region_scope,
+    refresh_browser_session,
     response_json,
     save_json,
     scoped_output_name,
@@ -234,9 +237,24 @@ def fetch_report_with_retry(
     max_attempts,
     retry_backoff_seconds,
     request_timeout,
+    page=None,
 ):
     for attempt in range(1, max_attempts + 1):
         try:
+            response = session.post(
+                report_api_url,
+                json=payload,
+                headers=headers,
+                timeout=request_timeout,
+            )
+            return response_json(
+                response,
+                f"Report for level{query_scope['level']} {query_scope['fullCode']}",
+            )
+        except SessionExpiredError:
+            if page is None:
+                raise
+            refresh_browser_session(page, session, headers, REPORT_NAVIGATION_TIMEOUT_MS)
             response = session.post(
                 report_api_url,
                 json=payload,
@@ -273,13 +291,14 @@ def run_report_scopes(
     max_retry_attempts,
     retry_backoff_seconds,
     request_timeout,
+    page=None,
 ):
     raw_results = []
     rows = []
     failed_scopes = []
     empty_scopes = []
 
-    for query_scope in tqdm(query_scopes, desc=description, unit="scope"):
+    for index, query_scope in enumerate(tqdm(query_scopes, desc=description, unit="scope")):
         try:
             payload = apply_scope_to_report_payload(
                 payload_template,
@@ -296,6 +315,7 @@ def run_report_scopes(
                 max_retry_attempts,
                 retry_backoff_seconds,
                 request_timeout,
+                page=page,
             )
             flattened_rows = response_flattener(data, selected_scope, query_scope)
             raw_results.append(
@@ -315,11 +335,29 @@ def run_report_scopes(
                 continue
 
             rows.extend(flattened_rows)
+        except SessionExpiredError as e:
+            e.raw_results = raw_results
+            e.rows = rows
+            e.failed_scopes = query_scopes[index:]
+            e.empty_scopes = empty_scopes
+            raise
         except Exception as e:
             failed_scopes.append(query_scope)
             print(f"\nGagal mengambil report {query_scope['fullCode']}: {e}")
 
     return raw_results, rows, failed_scopes, empty_scopes
+
+
+def save_report_progress(job, selected_scope, raw_results, rows, failed_scopes):
+    save_json(job["raw_output_file"], raw_results)
+    pd.DataFrame(rows).to_excel(job["excel_output_file"], index=False)
+    save_json(
+        job["failed_scopes_output_file"],
+        {
+            "selected_scope": selected_scope,
+            "failed_scopes": failed_scopes,
+        },
+    )
 
 
 def execute_report_job(
@@ -336,6 +374,7 @@ def execute_report_job(
     max_retry_attempts,
     retry_backoff_seconds,
     request_timeout,
+    page=None,
 ):
     selected_scope = job["selected_scope"]
     query_scopes = job["query_scopes"]
@@ -363,34 +402,14 @@ def execute_report_job(
             "rows": [],
         }
 
-    raw_results, rows, failed_scopes, empty_scopes = run_report_scopes(
-        session,
-        headers,
-        payload_template,
-        selected_scope,
-        query_scopes,
-        f"Fetching report level-{expand_target_level} scopes",
-        report_api_url,
-        max_scope_level,
-        empty_is_failure,
-        response_flattener,
-        max_retry_attempts,
-        retry_backoff_seconds,
-        request_timeout,
-    )
-
-    if failed_scopes:
-        print(
-            f"\nMenjalankan ulang {len(failed_scopes)} failed scope "
-            "dalam sesi yang sama..."
-        )
-        retry_raw_results, retry_rows, failed_scopes, retry_empty_scopes = run_report_scopes(
+    try:
+        raw_results, rows, failed_scopes, empty_scopes = run_report_scopes(
             session,
             headers,
             payload_template,
             selected_scope,
-            failed_scopes,
-            f"Retrying failed report level-{expand_target_level} scopes",
+            query_scopes,
+            f"Fetching report level-{expand_target_level} scopes",
             report_api_url,
             max_scope_level,
             empty_is_failure,
@@ -398,20 +417,53 @@ def execute_report_job(
             max_retry_attempts,
             retry_backoff_seconds,
             request_timeout,
+            page=page,
         )
+    except SessionExpiredError as e:
+        save_report_progress(
+            job,
+            selected_scope,
+            getattr(e, "raw_results", []),
+            getattr(e, "rows", []),
+            getattr(e, "failed_scopes", query_scopes),
+        )
+        print(f"Progress sementara disimpan ke {job['failed_scopes_output_file']}")
+        raise
+
+    if failed_scopes:
+        print(
+            f"\nMenjalankan ulang {len(failed_scopes)} failed scope "
+            "dalam sesi yang sama..."
+        )
+        try:
+            retry_raw_results, retry_rows, failed_scopes, retry_empty_scopes = run_report_scopes(
+                session,
+                headers,
+                payload_template,
+                selected_scope,
+                failed_scopes,
+                f"Retrying failed report level-{expand_target_level} scopes",
+                report_api_url,
+                max_scope_level,
+                empty_is_failure,
+                response_flattener,
+                max_retry_attempts,
+                retry_backoff_seconds,
+                request_timeout,
+                page=page,
+            )
+        except SessionExpiredError as e:
+            raw_results.extend(getattr(e, "raw_results", []))
+            rows.extend(getattr(e, "rows", []))
+            failed_scopes = getattr(e, "failed_scopes", failed_scopes)
+            save_report_progress(job, selected_scope, raw_results, rows, failed_scopes)
+            print(f"Progress sementara disimpan ke {job['failed_scopes_output_file']}")
+            raise
         raw_results.extend(retry_raw_results)
         rows.extend(retry_rows)
         empty_scopes.extend(retry_empty_scopes)
 
-    save_json(job["raw_output_file"], raw_results)
-    pd.DataFrame(rows).to_excel(job["excel_output_file"], index=False)
-    save_json(
-        job["failed_scopes_output_file"],
-        {
-            "selected_scope": selected_scope,
-            "failed_scopes": failed_scopes,
-        },
-    )
+    save_report_progress(job, selected_scope, raw_results, rows, failed_scopes)
 
     print(f"Raw report saved to {job['raw_output_file']}")
     print(f"Flattened report saved to {job['excel_output_file']}")
@@ -534,6 +586,7 @@ def run_report_job(
         page.goto("https://fasih-sm.bps.go.id/app/surveys", timeout=REPORT_NAVIGATION_TIMEOUT_MS)
         page.wait_for_load_state("networkidle", timeout=REPORT_NAVIGATION_TIMEOUT_MS)
         headers = build_authenticated_headers(page)
+        apply_browser_cookies_to_session(session, page)
         payload_template = load_json(payload_file)
         failed_batch_cache_files = []
 
@@ -560,9 +613,16 @@ def run_report_job(
                     max_retry_attempts=max_retry_attempts,
                     retry_backoff_seconds=retry_backoff_seconds,
                     request_timeout=request_timeout,
+                    page=page,
                 )
                 if regions_file and result["failed_scopes"]:
                     failed_batch_cache_files.append(regions_file)
+            except SessionExpiredError as e:
+                print(f"Session expired: {e}")
+                print("Login ulang lalu jalankan mode failed/batch-failed untuk melanjutkan.")
+                if regions_file:
+                    failed_batch_cache_files.append(regions_file)
+                break
             except Exception as e:
                 print(
                     f"Error saat memproses level2 "
