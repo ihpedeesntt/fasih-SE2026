@@ -1,20 +1,5 @@
-import random
-
 from playwright.sync_api import sync_playwright
 
-
-USER_AGENTS = [
-    "Mozilla/5.0 (Linux; Android 16; ONEPLUS 15 Build/SKQ1.211202.001; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/143.0.7499.192 Mobile Safari/537.36",
-    "Mozilla/5.0 (Linux; Android 15; SM-S928B Build/TP1A.220624.014; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/133.0.6943.88 Mobile Safari/537.36",
-    "Mozilla/5.0 (Linux; Android 14; Pixel 8a Build/UP1A.231005.007; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/130.0.6723.102 Mobile Safari/537.36",
-    "Mozilla/5.0 (Linux; Android 15; POCO X7 Pro Build/UKQ1.231003.002; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/133.0.6943.45 Mobile Safari/537.36",
-    "Mozilla/5.0 (Linux; Android 16; SM-A556E Build/TP1A.220624.014; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/134.0.6998.88 Mobile Safari/537.36",
-    "Mozilla/5.0 (Linux; Android 14; ONEPLUS PJZ110 Build/SKQ1.210216.001; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/132.0.6834.102 Mobile Safari/537.36",
-    "Mozilla/5.0 (Linux; Android 15; Redmi Note 14 Pro Build/UKQ1.231003.002; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/133.0.6943.127 Mobile Safari/537.36",
-    "Mozilla/5.0 (Linux; Android 16; Pixel 9 Pro Build/TP1A.220624.014; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/134.0.6998.45 Mobile Safari/537.36",
-    "Mozilla/5.0 (Linux; Android 14; moto g85 5G Build/S3SGS32.12-78-7; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/131.0.6778.200 Mobile Safari/537.36",
-    "Mozilla/5.0 (Linux; Android 15; SM-G991B Build/TP1A.220624.014; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/132.0.6834.88 Mobile Safari/537.36",
-]
 
 LOGIN_URL = "https://fasih-sm.bps.go.id/app/surveys"
 NAVIGATION_TIMEOUT_MS = 1200_000
@@ -65,99 +50,82 @@ def _click_sso_login(page):
     )
 
 
-def _sso_login_visible(page):
-    selectors = [
-        'a:has-text("Lanjutkan dengan SSO")',
-        'a[href*="/app/auth/login"]',
-        'text="Login SSO BPS"',
-    ]
-
-    for selector in selectors:
-        try:
-            if page.locator(selector).first.is_visible(timeout=1000):
-                return True
-        except Exception:
-            continue
-    return False
-
-
-def _click_visible_submit(page):
-    return _click_first_visible(
-        page,
-        [
-            'input[type="submit"]',
-            'button[type="submit"]',
-            'button:has-text("Login")',
-            'button:has-text("Masuk")',
-            'button:has-text("Submit")',
-            'button:has-text("Verifikasi")',
-            'button:has-text("Lanjut")',
-        ],
-    )
-
-
-def _is_logged_in(page):
-    current_url = page.url.lower()
-    if "/auth/login" in current_url or "sso.bps.go.id" in current_url:
-        return False
-    if _sso_login_visible(page):
-        return False
-    return "fasih-sm.bps.go.id" in current_url
-
-
-def _otp_input(page):
-    selectors = [
-        'input[name="otp"]',
-        'input[name="totp"]',
-        'input[name="code"]',
-        'input[type="tel"]',
-        'input[inputmode="numeric"]',
-    ]
-
-    for selector in selectors:
-        locator = page.locator(selector).first
-        try:
-            if locator.is_visible(timeout=3000):
-                return locator
-        except Exception:
-            continue
-
-    return None
-
-
-def login_with_sso():
-    pw = _get_playwright()
-    browser = pw.chromium.launch(headless=False)
-    page = browser.new_page(user_agent=random.choice(USER_AGENTS))
+def _verified_login(page, verify_url=None):
+    if not verify_url:
+        current_url = page.url.lower()
+        return "fasih-sm.bps.go.id" in current_url and "/auth/login" not in current_url
 
     try:
-        page.goto(LOGIN_URL, timeout=NAVIGATION_TIMEOUT_MS)
+        result = page.evaluate(
+            """async (url) => {
+                try {
+                    const response = await fetch(url, {
+                        credentials: "include",
+                        headers: {"Accept": "application/json, text/plain, */*"}
+                    });
+                    return {
+                        ok: response.ok,
+                        status: response.status,
+                        text: (await response.text()).slice(0, 300)
+                    };
+                } catch (error) {
+                    return {ok: false, status: 0, text: String(error)};
+                }
+            }""",
+            verify_url,
+        )
+    except Exception:
+        return False
+
+    text = result["text"].lower()
+    return result["ok"] and "<html" not in text and "login sso" not in text
+
+
+def _launch_browser(pw):
+    options = {
+        "headless": False,
+        "ignore_default_args": ["--enable-automation"],
+        "args": ["--disable-blink-features=AutomationControlled"],
+    }
+    try:
+        return pw.chromium.launch(channel="chrome", **options)
+    except Exception:
+        return pw.chromium.launch(**options)
+
+
+def ensure_verified_login(page, verify_url=None):
+    page.goto(LOGIN_URL, timeout=NAVIGATION_TIMEOUT_MS)
+    try:
         page.wait_for_load_state("networkidle", timeout=NAVIGATION_TIMEOUT_MS)
+    except Exception:
+        pass
 
-        if not _is_logged_in(page):
-            if not _click_sso_login(page):
-                raise RuntimeError("Tombol login SSO tidak ditemukan.")
-            page.wait_for_load_state("networkidle", timeout=NAVIGATION_TIMEOUT_MS)
+    if verify_url and _verified_login(page, verify_url):
+        return True
 
-        if not _is_logged_in(page):
-            print("Silakan isi username dan password di browser. Menunggu 60 detik...")
-            page.wait_for_timeout(MANUAL_LOGIN_WAIT_MS)
-            _click_visible_submit(page)
-            try:
-                page.wait_for_load_state("networkidle", timeout=NAVIGATION_TIMEOUT_MS)
-            except Exception:
-                pass
+    _click_sso_login(page)
+    print("Silakan selesaikan login SSO di browser, lalu tekan Enter di terminal...")
+    try:
+        input()
+    except EOFError:
+        page.wait_for_timeout(MANUAL_LOGIN_WAIT_MS + MANUAL_OTP_WAIT_MS)
 
-        if _otp_input(page) is not None and not _is_logged_in(page):
-            print("Field OTP terdeteksi. Silakan isi OTP di browser. Menunggu 60 detik...")
-            page.wait_for_timeout(MANUAL_OTP_WAIT_MS)
-            _click_visible_submit(page)
-            try:
-                page.wait_for_load_state("networkidle", timeout=NAVIGATION_TIMEOUT_MS)
-            except Exception:
-                pass
+    page.goto(LOGIN_URL, timeout=NAVIGATION_TIMEOUT_MS)
+    try:
+        page.wait_for_load_state("networkidle", timeout=NAVIGATION_TIMEOUT_MS)
+    except Exception:
+        pass
 
-        if _is_logged_in(page):
+    return _verified_login(page, verify_url)
+
+
+def login_with_sso(verify_url=None):
+    pw = _get_playwright()
+    browser = _launch_browser(pw)
+    page = browser.new_page()
+
+    try:
+        if ensure_verified_login(page, verify_url):
             print("Login berhasil!")
             return page, browser
 

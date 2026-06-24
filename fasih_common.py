@@ -25,6 +25,10 @@ DEFAULT_HEADERS = {
 }
 
 
+class SessionExpiredError(RuntimeError):
+    pass
+
+
 def get_random_delay(min_sec=0.2, max_sec=0.7):
     return random.uniform(min_sec, max_sec)
 
@@ -76,6 +80,10 @@ def build_authenticated_headers(page):
     )
 
     headers = DEFAULT_HEADERS.copy()
+    try:
+        headers["User-Agent"] = page.evaluate("navigator.userAgent")
+    except Exception:
+        pass
     headers["Cookie"] = cookie_string
     if xsrf_token:
         headers["X-XSRF-TOKEN"] = xsrf_token
@@ -93,13 +101,35 @@ def apply_browser_cookies_to_session(session, page):
         )
 
 
+def refresh_browser_session(page, session, headers, timeout=600_000):
+    print("Session expired. Refreshing browser session...")
+    page.reload(wait_until="networkidle", timeout=timeout)
+    headers.clear()
+    headers.update(build_authenticated_headers(page))
+    apply_browser_cookies_to_session(session, page)
+
+
 def response_json(response, description):
+    content_type = response.headers.get("Content-Type", "")
+    preview = response.text[:500].replace("\n", " ").replace("\r", " ")
+    lower_preview = preview.lower()
+    if (
+        response.status_code in {401, 403, 419}
+        or "text/html" in content_type.lower()
+        or "<html" in lower_preview
+        or "login sso" in lower_preview
+        or "captcha" in lower_preview
+        or "verifikasi" in lower_preview
+    ):
+        raise SessionExpiredError(
+            f"{description} session expired or verification is blocking requests; "
+            f"status={response.status_code}; content-type={content_type}; preview={preview}"
+        )
+
     response.raise_for_status()
     try:
         return response.json()
     except ValueError as e:
-        content_type = response.headers.get("Content-Type", "")
-        preview = response.text[:500].replace("\n", " ").replace("\r", " ")
         raise RuntimeError(
             f"{description} returned invalid JSON: {e}; "
             f"status={response.status_code}; content-type={content_type}; "

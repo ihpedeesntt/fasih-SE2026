@@ -74,6 +74,8 @@ regions_UB_5307.json
 Catatan:
 - untuk kabupaten/kota baru, file cache wilayah harus dibuat dulu
 - script ini login manual lewat browser
+- setelah login, script mengecek akses API wilayah level 3 sebelum mulai mengambil data
+- jika session habis saat build wilayah, script akan membuka ulang halaman dan meminta login ulang di browser yang sama
 - `build_regions_UMKM.py` dan `build_regions_UB.py` memakai ID wilayah yang berbeda, jadi cache-nya tidak bisa saling dipakai
 
 hanya dilakukan sekali saja untuk mengambil data wilayah kabupaten per dataset.
@@ -171,6 +173,8 @@ Semua script yang akses API FASIH memakai login manual melalui `login.py`.
 
 Alur singkat:
 - browser dibuka
-- isi login dan OTP manual, masing-masing diberikan waktu 3 menit
-- jika ada OTP, isi manual
-- setelah login berhasil, script lanjut memakai cookie sesi
+- selesaikan login SSO dan OTP di browser
+- setelah selesai, tekan Enter di terminal
+- script hanya menampilkan `Login berhasil!` jika API yang dibutuhkan sudah bisa diakses
+- untuk build wilayah, request wilayah dijalankan dari browser yang sudah login
+- jika session habis, script akan mencoba verifikasi ulang; jika masih gagal, selesaikan login lagi di browser lalu tekan Enter
