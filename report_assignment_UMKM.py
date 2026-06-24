@@ -7,6 +7,7 @@ REPORT_API_URL = (
 )
 PAYLOAD_FILE = "payload_report_assignment.json"
 FAILED_SCOPES_FILE = "failed_report_scopes.json"
+FAILED_BATCHES_FILE = "failed_level2_batches_UMKM.json"
 OUTPUT_PREFIX = "report_assignment_UMKM"
 
 
@@ -18,6 +19,8 @@ def main():
         output_prefix=OUTPUT_PREFIX,
         regions_file_default="regions_UMKM.json",
         regions_file_pattern="regions_UMKM*.json",
+        enable_batch=True,
+        failed_batches_file=FAILED_BATCHES_FILE,
         max_scope_level=5,
         expand_target_level=5,
         empty_is_failure=False,
