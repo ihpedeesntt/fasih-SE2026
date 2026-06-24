@@ -3,8 +3,7 @@ from playwright.sync_api import sync_playwright
 
 LOGIN_URL = "https://fasih-sm.bps.go.id/app/surveys"
 NAVIGATION_TIMEOUT_MS = 1200_000
-MANUAL_LOGIN_WAIT_MS = 180_000
-MANUAL_OTP_WAIT_MS = 180_000
+MANUAL_LOGIN_WAIT_MS = 120_000
 
 _PW = None
 
@@ -104,11 +103,8 @@ def ensure_verified_login(page, verify_url=None):
         return True
 
     _click_sso_login(page)
-    print("Silakan selesaikan login SSO di browser, lalu tekan Enter di terminal...")
-    try:
-        input()
-    except EOFError:
-        page.wait_for_timeout(MANUAL_LOGIN_WAIT_MS + MANUAL_OTP_WAIT_MS)
+    print("Silakan selesaikan login SSO di browser. Script menunggu 2 menit...")
+    page.wait_for_timeout(MANUAL_LOGIN_WAIT_MS)
 
     page.goto(LOGIN_URL, timeout=NAVIGATION_TIMEOUT_MS)
     try:
