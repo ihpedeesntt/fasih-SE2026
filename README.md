@@ -4,6 +4,7 @@ Kumpulan script untuk:
 - membangun cache wilayah per kabupaten/kota
 - mengambil assignment UMKM
 - mengambil report progress assignment
+- mengambil data SQLLab FASIH Dashboard per halaman
 
 ## Instalasi
 
@@ -41,6 +42,11 @@ uv run playwright install
 - `report_assignment_UB.py`
   - ambil report progress assignment untuk UB
   - flow sama dengan UMKM, tetapi memakai payload dan file failed khusus UB
+- `fetch_sqllab.py`
+  - jalankan query SQLLab dari file `.sql`
+  - hasil per halaman disimpan ke `output/<nama_sql>/pages/*.csv`
+- `T_USAHA_RAW.sql` / `KBLI_LEVEL_5.sql`
+  - contoh query untuk `fetch_sqllab.py`
 
 ## ALUR
 
@@ -153,6 +159,29 @@ report_assignment_UB_level2_5305.xlsx
 failed_report_scopes_UB.json
 ```
 
+### Ambil data SQLLab
+
+Jalankan:
+
+```powershell
+uv run python fetch_sqllab.py --sql T_USAHA_RAW.sql
+```
+
+Opsi yang sering dipakai:
+- `--sql KBLI_LEVEL_5.sql` untuk memakai file query lain
+- `--output-dir output` untuk folder hasil
+- `--page-size 1000` untuk jumlah baris per halaman
+- `--max-pages 2` untuk test ambil beberapa halaman saja
+- `--no-resume` untuk mulai ulang dari halaman pertama
+- `--self-check` untuk cek fungsi parsing tanpa membuka browser
+
+Catatan:
+- browser Chrome akan terbuka ke SQLLab
+- login FASIH Dashboard dilakukan manual di browser jika session belum aktif
+- session browser disimpan di `.chrome-sqllab-profile/`
+- output CSV dan checkpoint disimpan di `output/<nama_sql>/`
+- query harus punya tepat satu clause `OFFSET ... ROWS FETCH NEXT ... ROWS ONLY`
+
 ## Retry dan Timeout
 
 `report_assignment_UMKM.py` saat ini:
@@ -174,7 +203,7 @@ Semua script yang akses API FASIH memakai login manual melalui `login.py`.
 Alur singkat:
 - browser dibuka
 - selesaikan login SSO dan OTP di browser
-- setelah selesai, tekan Enter di terminal
+- script menunggu 2 menit setelah klik SSO
 - script hanya menampilkan `Login berhasil!` jika API yang dibutuhkan sudah bisa diakses
 - untuk build wilayah, request wilayah dijalankan dari browser yang sudah login
-- jika session habis, script akan mencoba verifikasi ulang; jika masih gagal, selesaikan login lagi di browser lalu tekan Enter
+- jika session habis, script akan mencoba verifikasi ulang; jika masih gagal, selesaikan login lagi di browser dan tunggu sampai script lanjut
